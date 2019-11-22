@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html>
+<div id="display">
+<p id="starts">
+<BR><button id="button-scan" disabled onclick="app.refreshDeviceList()" id="button-scan">敵を探す</button><BR>
+<BR><button id="quest" onclick="startScript()">戦いを始める</button><BR>
+<BR>素材元　<a href="http://katus-gifani.sakura.ne.jp/">ＨＰ・メール素材 カツのGIFアニメ</a>
+</p>
+<p id="stats"></p>
+</div>
+<p id="games"></p>
+</div>
+<script type="text/javascript" src="sha256.js"></script>
+<script type="text/javascript">
+const startBtn = document.querySelector('#start-btn');
+const wikiBtn = document.querySelector('#wiki-btn');
+const resultDiv = document.querySelector('#result-div');
+const statusDiv = document.querySelector('#status-div');
+
+var statGame = 0;
+var bles = [];
+var conte = 0;
+var bossc = 0;
+
+var app = {
+  initialize: function() {
+    this.bindEvents();
+    document.getElementById("button-scan").disabled = false; 
+  },
+  
+  bindEvents: function() {
+    document.addEventListener('deviceready', this.onDeviceReady, false);
+  },
+  
+  onDeviceReady: function() {
+    console.log('exec onDeviceReady');
+    app.receivedEvent('deviceready');
+  },
+  
+  refreshDeviceList: function() {
+    console.log('exec refreshDeviceList');
+
+    let element = document.getElementById('stats');
+    element.innerHTML = "";
+    element = document.getElementById('games');
+    element.innerHTML = "";
+
+    ble.scan([], 262144, app.onDiscoverDevice, app.onError);
+  },
+
+  onDiscoverDevice: function(device) {
+    let element = document.getElementById('stats');
+    element.innerHTML = "[%d]".sprintf(bles.length);
+
+    element = document.getElementById('games');
+    element.innerHTML += "name [%s] id [%s]<BR>".sprintf(device.name, device.id);
+
+    var enemyHash = toHash(device.name + device.id);
+    var cflag = false;
+
+    for (i = 0 ; bles.length > i; i++) {
+      if (bles[i] == enemyHash) { cflag = true; }
+    }
+
+    if (cflag == false) { bles.push(enemyHash); }
+
+  },
+
+  // Update DOM on a Received Event
+  receivedEvent: function(id) {
+    document.getElementById("button-scan").disabled = false;
+    document.getElementById("button-scan").innerHTML = "敵を探す";
+  }
+};
+
+setTimeout(function () {
+  app.initialize(); 
+  } ,2000);
+
+/** tiny sprintf
+ * format:
+ *    "%"[arg-index-specifier"$"][sign-specifier][width-specifier][precision-specifier]type-specifier
+ *
+ * sign-specifier:
+ *    "#": add "0", "0x", "0X" mark
+ *       : typeが"o"なら先頭に"0"を追加します。
+ *       : typeが"x"なら先頭に"0x"を追加します。
+ *       : typeが"X"なら先頭に"0X"を追加します。
+ *
+ * width-specifier:
+ *     n: minimize field width(0 to 9)
+ *      : 最低何桁表示するかを指定します。指定可能な値は0?9です。0で非表示になります。
+ *
+ * precision-specifier:
+ *    "."n: floating-point limit width(0 to 9) for "f". string limit width(0 to 9) for "s"
+ *        : ドットと数値を指定することで小数点以下の桁数や文字列の長さを指定できます。指定可能な値は0?9です。
+ *        : typeが"f"なら、小数点以下の桁数を指定します。浮動小数点値が丸められることがあります。0で小数点以下が非表示になります。
+ *        : typeが"s"なら、文字列の長さを指定します。指定した長さ以上の文字は切り捨てられます。0で非表示になります。
+ *
+ * type-specifier:
+ *    "d": signed decimal number
+ *    "u": unsigned decimal number
+ *    "o": unsigned octet number
+ *    "x": unsigned hex number(lower case)
+ *    "X": unsigned hex number(upper case)
+ *    "f": floating-point number
+ *    "c": the character with that ASCII value
+ *    "s": string
+ *    "%": "%"
+ *
+ * arg-index-specifier:
+ *     n : arguments index
+ *       : 引数のインデックスを指定します。引数の再利用と、引数の順序を指定することによりi18n化をサポートします。
+ *
+ */
+if (!String.prototype.sprintf) {
+  String.prototype.sprintf = function(args___) {
+    var rv = [], i = 0, v, width, precision, sign, idx, argv = arguments, next = 0;
+    var s = (this + "     ").split(""); // add dummy 5 chars.
+    var unsign = function(val) { return (val >= 0) ? val : val % 0x100000000 + 0x100000000; };
+    var getArg = function() { return argv[idx ? idx - 1 : next++]; };
+
+    for (; i < s.length - 5; ++i) {
+      if (s[i] !== "%") { rv.push(s[i]); continue; }
+
+      ++i, idx = 0, precision = undefined;
+
+      // arg-index-specifier
+      if (!isNaN(parseInt(s[i])) && s[i + 1] === "$") { idx = parseInt(s[i]); i += 2; }
+      // sign-specifier
+      sign = (s[i] !== "#") ? false : ++i, true;
+      // width-specifier
+      width = (isNaN(parseInt(s[i]))) ? 0 : parseInt(s[i++]);
+      // precision-specifier
+      if (s[i] === "." && !isNaN(parseInt(s[i + 1]))) { precision = parseInt(s[i + 1]); i += 2; }
+
+      switch (s[i]) {
+      case "d": v = parseInt(getArg()).toString(); break;
+      case "u": v = parseInt(getArg()); if (!isNaN(v)) { v = unsign(v).toString(); } break;
+      case "o": v = parseInt(getArg()); if (!isNaN(v)) { v = (sign ? "0"  : "") + unsign(v).toString(8); } break;
+      case "x": v = parseInt(getArg()); if (!isNaN(v)) { v = (sign ? "0x" : "") + unsign(v).toString(16); } break;
+      case "X": v = parseInt(getArg()); if (!isNaN(v)) { v = (sign ? "0X" : "") + unsign(v).toString(16).toUpperCase(); } break;
+      case "f": v = parseFloat(getArg()).toFixed(precision); break;
+      case "c": width = 0; v = getArg(); v = (typeof v === "number") ? String.fromCharCode(v) : NaN; break;
+      case "s": width = 0; v = getArg().toString(); if (precision) { v = v.substring(0, precision); } break;
+      case "%": width = 0; v = s[i]; break; 
+      default:  width = 0; v = "%" + ((width) ? width.toString() : "") + s[i].toString(); break;
+      }
+      if (isNaN(v)) { v = v.toString(); }
+      (v.length < width) ? rv.push(" ".repeat(width - v.length), v) : rv.push(v);
+    }
+    return rv.join("");
+  };
+}
+if (!String.prototype.repeat) {
+  String.prototype.repeat = function(n) {
+    var rv = [], i = 0, sz = n || 1, s = this.toString();
+    for (; i < sz; ++i) { rv.push(s); }
+    return rv.join("");
+  };
+}
+
+function enemyDo(act) {
+  //Pw G 1 T 2 P 3
+  //Ew G 4 T 5 P 6
+  //Even 7
+
+  var rnd = returnRnd(100)
+
+  var ret = 7
+  if (rnd > 0 && rnd < 33) {
+    //G
+    switch (act) {
+      case 1:
+        //G
+        ret = 7
+      case 2:
+        //T
+        ret = 4
+      case 3:
+        //P
+        ret = 3
+    }
+  } else if (rnd > 33 && rnd < 66) {
+    //T
+    switch (act) {
+      case 1:
+        //G
+        ret = 1
+      case 2:
+        //T
+        ret = 7
+      case 3:
+        //P
+        ret = 5
+    }
+  } else if (rnd > 66) {
+    //P
+    switch (act) {
+      case 1:
+        //G
+        ret = 6
+      case 2:
+        //T
+        ret = 2
+      case 3:
+        //P
+        ret = 7
+    }
+  }
+  return ret
+}
+
+function charaData (h, mh, g, t, p, vg, vt, vp, exp, lvl, lv, mp, mmp) {
+  this.h   = h;
+  this.mh  = mh;
+  this.g   = g;
+  this.t   = t;
+  this.p   = p;
+  this.vg  = vg;
+  this.vt  = vt;
+  this.vp  = vp;
+  this.exp = exp;
+  this.lvl = lvl;
+  this.lv  = lv;
+  this.mp  = mp;
+  this.mmp = mmp;
+}
+
+function enemyData (h, g, t, p, vg, vt, vp, rt, pic) {
+  this.h  = h;
+  this.g  = g;
+  this.t  = t;
+  this.p  = p;
+  this.vg = vg;
+  this.vt = vt;
+  this.vp = vp;
+  this.rt = rt;
+  this.pic = pic;
+}
+
+function nowDateString() {
+  var now = new Date();
+  return now.toLocaleString();
+}
+
+function toHash(hashString) {
+  const SHA_OBJ = new jsSHA("SHA-256","TEXT");
+  SHA_OBJ.update(hashString);
+  return SHA_OBJ.getHash("HEX");
+}
+
+function returnRnd(rnd) {
+  var random = Math.floor( Math.random() * rnd) + 1;
+  return random;
+}
+
+function toSum(hash, startInt, endInt, addFlag) {
+  var sum = 1
+
+  for (let i = startInt; i < hash.length; i++) {
+    var r = 0;
+
+    var chars = hash.charAt(i);
+    switch (chars) {
+      case "a":
+        r = 10;
+        break;
+      case "b":
+        r = 11;
+        break;
+      case "c":
+        r = 12;
+        break;
+      case "d":
+        r = 13;
+        break;
+      case "e":
+        r = 14;
+        break;
+      case "f":
+        r = 15;
+        break;
+      default:
+        r = parseInt(chars, 10);
+    }
+
+    if (addFlag == true) {
+      sum += r;
+    } else {
+      if (r == 0) { r = 1; }
+      sum = sum * r;
+    }
+
+    if (i == endInt) { break; }
+  }
+
+
+  return sum
+}
+
+var boss = 1 + returnRnd(2);
+var cnt = 5;
+var lvl = 0;
+var preDum = 0;
+var keis = 0;
+var doubles = 0;
+var PlayerRate = 0;
+var enemyRate = 0
+var player = new charaData(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1);
+
+function startScript() {
+  ble.stopScan(app.initialize, app.onError);
+
+  //var rndn = returnRnd(30);
+  //for (let i = 0; i < rndn; i++) {
+  //  macAddress = "02:42:e2:41:f8:" + returnRnd(9) + returnRnd(9);
+  //  var nowDate = nowDateString();
+  //  var enemyHash = toHash(macAddress + nowDate);
+  //  bles.push(enemyHash);
+  //}
+
+  if (bles.length == 0) {
+    alert("no ble devices..");
+    return;
+  }
+
+  let element = document.getElementById('starts');
+  element.innerHTML = "";
+  element = document.getElementById('stats');
+  element.innerHTML = "";
+  element = document.getElementById('games');
+  element.innerHTML = "";
+
+  if (conte == 0) {
+    var macAddress = "1a:71:2b:4e:f7:d8";
+    var nowDate = nowDateString();
+
+    playerHash = toHash(macAddress + nowDate)
+
+    player.h  = toSum(playerHash, 0, 2,false)
+    if (player.h < 1000) { player.h += 1000; }
+    if (player.h > 2000) { player.h -= 1000; }
+    player.h += 250;
+    player.mh = player.h
+    player.g  = toSum(playerHash, 3, 5,true)
+    player.t  = toSum(playerHash, 6, 8,true)
+    player.p  = toSum(playerHash, 9,11,true)
+    player.vg = toSum(playerHash,12,14,true)
+    player.vt = toSum(playerHash,15,17,true)
+    player.vp = toSum(playerHash,18,20,true)
+    PlayerRate = Math.ceil(((player.h / 3375) + (player.g / 48) + (player.t / 48) + (player.p / 48) + (player.vg / 48) + (player.vt / 48) + (player.vp / 48)) * 1000);
+    player.exp = 0
+    player.lvl = Math.ceil(PlayerRate / 100)
+    player.lv = 1
+    player.mp = 3
+    player.mmp = 3
+    conte = 1;
+  }
+
+  createEnemys();
+}
+
+var enemys = [];
+var enemy;
+
+function createEnemys() {
+
+  if (boss == 0) {
+    statGame = 1;
+    return;
+  } else {
+    for (let i = 0; i < bles.length; i++) {
+      enemyHash = bles[i];
+      var enemy = new enemyData(0, 0, 0, 0, 0, 0, 0, 0);
+      
+      enemy.h = toSum(enemyHash, 0, 2,false);
+      if (enemy.h < 1000) { enemy.h += 1000; }
+      if (enemy.h > 2000) { enemy.h -= 1000; }
+      
+      enemy.g  = toSum(enemyHash, 3, 5,true) + Math.ceil( player.g * 0.01 * player.lv * returnRnd(10));
+      enemy.t  = toSum(enemyHash, 6, 8,true) + Math.ceil( player.t * 0.01 * player.lv * returnRnd(10));
+      enemy.p  = toSum(enemyHash, 9,11,true) + Math.ceil( player.p * 0.01 * player.lv * returnRnd(10));
+      enemy.vg = toSum(enemyHash,12,14,true) + Math.ceil(player.vg * 0.01 * player.lv * returnRnd(10));
+      enemy.vt = toSum(enemyHash,15,17,true) + Math.ceil(player.vt * 0.01 * player.lv * returnRnd(10));
+      enemy.vp = toSum(enemyHash,18,20,true) + Math.ceil(player.vp * 0.01 * player.lv * returnRnd(10));
+      enemy.pic = returnRnd(31);
+      
+      var enemyRate = Math.ceil(((enemy.h / 3375) + (enemy.g / 48) + (enemy.t / 48) + (enemy.p / 48) + (enemy.vg / 48) + (enemy.vt / 48) + (enemy.vp / 48)) * 1000);
+      
+      //console.log("E H[%4d] G[%2d]T[%2d]P[%2d] vG[%2d]vT[%2d]vP[%2d] Rate: %4d".sprintf(enemy.h ,enemy.g ,enemy.t ,enemy.p ,enemy.vg ,enemy.vt ,enemy.vp, enemyRate));
+      enemys.push( [enemy.h ,enemy.g ,enemy.t ,enemy.p ,enemy.vg ,enemy.vt ,enemy.vp, enemyRate, enemy.pic]);
+    }
+
+    let element = document.getElementById('games');
+    element.innerHTML = "";
+
+    element.innerHTML += "<table border=\"1\" id=\"playerTable\"><tr><th>レベル</th><th>体力</th><th>魔法</th><th>グー</th><th>チョキ</th><th>パー</th><th>グー防御</th><th>チョキ防御</th><th>パー防御</th><th>レート</th><th>経験値</th></tr>";
+    let theFormChild = document.getElementById("playerTable");
+    theFormChild.innerHTML += "<tr><th>" + player.lv + "</th><th>" + player.h + " / " + player.mh +"</th><th>" + player.mp + "</th><th>" + player.g + "</th><th>" + player.t + "</th><th>" + player.p + "</th><th>" + player.vg + "</th><th>" + player.vt + "</th><th>" + player.vp + "</th><th>" + PlayerRate + "</th><th>" + player.exp + " / " + player.lvl +"</th></tr>";
+    theFormChild.innerHTML += "</table><BR>";
+    
+    element.innerHTML += "<form id=\"radio\">";
+    let theForm = document.getElementById("radio");
+
+    theForm.innerHTML += "<BR><table border=\"1\" id=\"radioTable\"><tr><th></th><th>レート</th></tr>";
+    theFormChild = document.getElementById("radioTable");
+
+    for (let i = 0; i < enemys.length; i++) {
+      theFormChild.innerHTML += "<tr><td><input type=\"image\" src=\"enemy/" + enemys[i][8] + ".gif\" id=\"" + i + "\" onclick=\"getMenuClick(this); event.stopPropagation()\"></td><td>" + enemys[i][7] + "</td></tr>";
+    }
+    theFormChild.innerHTML += "</table>";
+    element.innerHTML += "</form>";
+    statGame = 1;
+  }
+}
+
+function getMenuClick(ele){
+  const id_value = ele.id;
+
+  switch (id_value) {
+    case "lv_h":
+      player.mh = player.mh + Math.ceil(returnRnd(player.mh) / 10 + player.mh / 10);
+      player.h = player.mh;
+      PlayerRate = Math.ceil(((player.h / 3375) + (player.g / 48) + (player.t / 48) + (player.p / 48) + (player.vg / 48) + (player.vt / 48) + (player.vp / 48)) * 1000);
+      break;
+    case "lv_m":
+      player.mmp++
+      player.mp = player.mmp
+      PlayerRate = Math.ceil(((player.h / 3375) + (player.g / 48) + (player.t / 48) + (player.p / 48) + (player.vg / 48) + (player.vt / 48) + (player.vp / 48)) * 1000);
+      break;
+    case "lv_g":
+      player.g = player.g + returnRnd(player.lv);
+      PlayerRate = Math.ceil(((player.h / 3375) + (player.g / 48) + (player.t / 48) + (player.p / 48) + (player.vg / 48) + (player.vt / 48) + (player.vp / 48)) * 1000);
+      break;
+    case "lv_t":
+      player.t = player.t + returnRnd(player.lv);
+      PlayerRate = Math.ceil(((player.h / 3375) + (player.g / 48) + (player.t / 48) + (player.p / 48) + (player.vg / 48) + (player.vt / 48) + (player.vp / 48)) * 1000);
+      break;
+    case "lv_p":
+      player.p = player.p + returnRnd(player.lv);
+      PlayerRate = Math.ceil(((player.h / 3375) + (player.g / 48) + (player.t / 48) + (player.p / 48) + (player.vg / 48) + (player.vt / 48) + (player.vp / 48)) * 1000);
+      break;
+    case "lv_vg":
+      player.vg = player.vg + returnRnd(player.lv);
+      PlayerRate = Math.ceil(((player.h / 3375) + (player.g / 48) + (player.t / 48) + (player.p / 48) + (player.vg / 48) + (player.vt / 48) + (player.vp / 48)) * 1000);
+      break;
+    case "lv_vt":
+      player.vt = player.vt + returnRnd(player.lv);
+      PlayerRate = Math.ceil(((player.h / 3375) + (player.g / 48) + (player.t / 48) + (player.p / 48) + (player.vg / 48) + (player.vt / 48) + (player.vp / 48)) * 1000);
+      break;
+    case "lv_vp":
+      player.vp = player.vp + returnRnd(player.lv);
+      PlayerRate = Math.ceil(((player.h / 3375) + (player.g / 48) + (player.t / 48) + (player.p / 48) + (player.vg / 48) + (player.vt / 48) + (player.vp / 48)) * 1000);
+      break;
+  }
+
+  if (lvl > 0) {
+    statGame = 0;
+    enemys.length = 0;
+
+    let element = document.getElementById('stats');
+    element.innerHTML = "";
+    element.innerHTML = "レベルがあがりました！強化するステータスを選んでください。<br>";
+    element.innerHTML += "<table border=\"1\" id=\"playerTable\"><tr><th>レベル</th><th>体力</th><th>魔法</th><th>グー</th><th>チョキ</th><th>パー</th><th>グー防御</th><th>チョキ防御</th><th>パー防御</th><th>レート</th><th>経験値</th></tr>";
+    let theFormChild = document.getElementById("playerTable");
+    theFormChild.innerHTML += "<tr><th>" + player.lv + "</th><th>" + player.h + " / " + player.mh +"</th><th>" + player.mp + "</th><th>" + player.g + "</th><th>" + player.t + "</th><th>" + player.p + "</th><th>" + player.vg + "</th><th>" + player.vt + "</th><th>" + player.vp + "</th><th>" + PlayerRate + "</th><th>" + player.exp + " / " + player.lvl +"</th></tr>";
+    theFormChild.innerHTML += "</table><BR>";
+
+    element = document.getElementById('games');
+    element.innerHTML = "";
+
+    element.innerHTML += "<form id=\"radio\">";
+    element.innerHTML += "<BR><button id=\"lv_h\" onclick=\"getMenuClick(this); event.stopPropagation()\"> 体力アップ </button><BR>";
+    element.innerHTML += "<BR><button id=\"lv_m\" onclick=\"getMenuClick(this); event.stopPropagation()\"> 魔法回数追加 </button><BR>";
+    element.innerHTML += "<BR><button id=\"lv_g\" onclick=\"getMenuClick(this); event.stopPropagation()\"> グー強化 </button><BR>";
+    element.innerHTML += "<BR><button id=\"lv_t\" onclick=\"getMenuClick(this); event.stopPropagation()\"> チョキ強化 </button><BR>";
+    element.innerHTML += "<BR><button id=\"lv_p\" onclick=\"getMenuClick(this); event.stopPropagation()\"> パー強化 </button><BR>";
+    element.innerHTML += "<BR><button id=\"lv_vg\" onclick=\"getMenuClick(this); event.stopPropagation()\"> グー防御強化 </button><BR>";
+    element.innerHTML += "<BR><button id=\"lv_vt\" onclick=\"getMenuClick(this); event.stopPropagation()\"> チョキ防御強化 </button><BR>";
+    element.innerHTML += "<BR><button id=\"lv_vp\" onclick=\"getMenuClick(this); event.stopPropagation()\"> パー防御強化 </button><BR>";
+    element.innerHTML += "</form><BR>";
+    player.lv++;
+    lvl = lvl - 1
+    return;
+  }
+
+  if (id_value == "next" || id_value.indexOf("lv_") > -1) {
+    if (boss == -1 && statGame == 0) {
+      boss = 3 + returnRnd(2);
+
+      let element = document.getElementById('starts');
+
+      element.innerHTML  = "<BR><button id=\"button-scan\" disabled onclick=\"app.refreshDeviceList()\" id=\"button-scan\">敵を探す</button><BR>";
+      element.innerHTML += "<BR><button id=\"quest\" onclick=\"startScript()\">戦いを始める</button><BR>";
+
+      element = document.getElementById('stats');
+      element.innerHTML = "";
+      element = document.getElementById('games');
+      element.innerHTML = "";
+
+      statGame = 0;
+      bles.length = 0;
+
+      setTimeout(function () {
+        app.initialize(); 
+        } ,2000);
+
+      return;
+    } else {
+      let element = document.getElementById('stats');
+      element.innerHTML = "";
+      element = document.getElementById('games');
+      element.innerHTML = "";
+
+      statGame = 0;
+      enemys.length = 0;
+      createEnemys();
+    }
+  }
+
+  if (statGame == 1) {
+    if (boss == 0) {
+      statGame = 2;
+
+      var rnd = 0;
+
+      rnd = returnRnd(100);
+      if (rnd > 50) { enemy.h  = player.mh + returnRnd(player.mh); } else { enemy.h = player.mh - (returnRnd(player.mh) / 2); }
+  
+      rnd = returnRnd(100);
+      if (rnd > 50) { enemy.g = player.g + returnRnd(player.g); } else { enemy.g = player.g - (returnRnd(player.g) / 2); }
+  
+      rnd = returnRnd(100)
+      if (rnd > 50) { enemy.t = player.t + returnRnd(player.t); } else { enemy.t = player.t - (returnRnd(player.t) / 2); }
+  
+      rnd = returnRnd(100)
+      if (rnd > 50){ enemy.p = player.p + returnRnd(player.p); } else { enemy.p = player.p - (returnRnd(player.p) / 2); }
+  
+      rnd = returnRnd(100)
+      if (rnd > 50) { enemy.vg = player.vg + returnRnd(player.vg); } else { enemy.vg = player.vg - (returnRnd(player.vg) / 2); }
+  
+      rnd = returnRnd(100)
+      if (rnd > 50) { enemy.vt = player.vt + returnRnd(player.vt); } else { enemy.vt = player.vt - (returnRnd(player.vt) / 2); }
+  
+      rnd = returnRnd(100)
+      if (rnd > 50) { enemy.vp = player.vp + returnRnd(player.vp); } else { enemy.vp = player.vp - (returnRnd(player.vp) / 2); }
+  
+      enemyRate = Math.ceil(((enemy.h / 3375) + (enemy.g / 48) + (enemy.t / 48) + (enemy.p / 48) + (enemy.vg / 48) + (enemy.vt / 48) + (enemy.vp / 48)) * 1000);
+      enemy.pic = bossc;
+      bossc++;
+      if (bossc > 5) { bossc = 0; }
+    } else {
+      enemy = new enemyData(enemys[id_value][0], enemys[id_value][1], enemys[id_value][2], enemys[id_value][3], enemys[id_value][4], enemys[id_value][5], enemys[id_value][6], enemys[id_value][7], enemys[id_value][8]);
+      statGame = 2;
+      enemyRate = enemys[id_value][7];
+
+      macAddress = "02:42:e2:41:f8:" + returnRnd(9) + returnRnd(9);
+      var nowDate = nowDateString();
+      var enemyHash = toHash(macAddress + nowDate);
+      bles[id_value] = enemyHash;
+    }
+  }
+
+  if (statGame == 2) {
+    let element = document.getElementById('stats');
+    element.innerHTML = "";
+
+    let theFormChild;
+    let messages = "";
+
+    if (boss == 0) {
+      messages += "ボスが現れた！";
+    }
+
+    element.innerHTML += "<table border=\"1\" id=\"messageTable\"><tr><th>message</th></tr>";
+    theFormChild = document.getElementById("messageTable");
+    messages += "何で攻撃しますか？";
+    theFormChild.innerHTML += "<small><tr><td>" + messages + "</td></tr></table><br></small>";
+    messages = "";
+
+    if (boss == 0) {
+      element.innerHTML += "<img src=\"boss/" + enemy.pic + ".gif\" width=\"10%\" height=\"10%\">";
+    } else {
+      element.innerHTML += "<img src=\"enemy/" + enemy.pic + ".gif\" width=\"5%\" height=\"5%\">";
+    }
+
+    element.innerHTML += "<small><table border=\"1\" id=\"playerTable\"><tr><th></th><th>レベル</th><th>体力</th><th>魔法</th><th>グー</th><th>チョキ</th><th>パー</th><th>グー防御</th><th>チョキ防御</th><th>パー防御</th><th>レート</th><th>経験値</th></tr>";
+    theFormChild = document.getElementById("playerTable");
+    theFormChild.innerHTML += "<tr><th>あなた</th><th>" + player.lv + "</th><th>" + player.h + " / " + player.mh +"</th><th>" + player.mp + "</th><th>" + player.g + "</th><th>" + player.t + "</th><th>" + player.p + "</th><th>" + player.vg + "</th><th>" + player.vt + "</th><th>" + player.vp + "</th><th>" + PlayerRate + "</th><th>" + player.exp + " / " + player.lvl +"</th></tr>";
+    theFormChild.innerHTML += "<tr><th>敵</th><th bgcolor=\"#000000\"></th><th>" + enemy.h +"</th><th bgcolor=\"#000000\"></th><th>" + enemy.g + "</th><th>" + enemy.t + "</th><th>" + enemy.p + "</th><th bgcolor=\"#000000\"></th><th bgcolor=\"#000000\"></th><th bgcolor=\"#000000\"></th><th>" + enemyRate + "</th><th bgcolor=\"#000000\"></th></tr></table></small>";
+
+    element = document.getElementById('games');
+    element.innerHTML = "";
+
+    element.innerHTML += "<small><form id=\"radio\">";
+    element.innerHTML += "<button id=\"g\" onclick=\"getMenuClick(this); event.stopPropagation()\">グー</button>　　";
+    element.innerHTML += "<button id=\"t\" onclick=\"getMenuClick(this); event.stopPropagation()\">チョキ</button>　　";
+    element.innerHTML += "<button id=\"p\" onclick=\"getMenuClick(this); event.stopPropagation()\">パー</button>　　";
+    element.innerHTML += "<button id=\"c\" onclick=\"getMenuClick(this); event.stopPropagation()\">体力回復</button>　　";
+    element.innerHTML += "<button id=\"d\" onclick=\"getMenuClick(this); event.stopPropagation()\">倍ダメージ</button>　　";
+    element.innerHTML += "<button id=\"r\" onclick=\"getMenuClick(this); event.stopPropagation()\">カウンター</button>";
+    element.innerHTML += "</form></small>";
+
+    let act = 0
+    switch (id_value) {
+      case "g":
+        act = 1;
+        break;
+      case "t":
+        act = 2;
+        break;
+      case "p":
+        act = 3;
+        break;
+      case "c":
+        act = 4;
+        break;
+      case "d":
+        act = 5;
+        break;
+      case "r":
+        act = 6;
+        break;
+    }
+
+    element = document.getElementById('stats');
+
+    if (act < 4) {
+      if (act == 0) { return; }
+      keis = 10;
+      doubles = 5;
+      crit = 10;
+      doublePer = 75;
+      critPer = 90;
+
+      ret = enemyDo(act);
+      var dum = 0;
+      switch (ret) {
+        case 7:
+          messages += "引き分け！";
+          break;
+        case 1:
+          dum = ((player.g * keis) - (enemy.vg * returnRnd(keis)));
+          if (dum < 0) { dum = 0; }
+          if (returnRnd(100) > critPer) {
+            messages += "クリティカルヒット！";
+            dum = dum * crit;
+          }
+
+          messages += "勝ち！%dダメージを与えた".sprintf(dum);
+          enemy.h = enemy.h - dum;
+          break;
+        case 2:
+          dum = ((player.t * keis) - (enemy.vt * returnRnd(keis)))
+          if (dum < 0) { dum = 0; }
+          if (returnRnd(100) > doublePer) {
+            messages += "倍ダメージ！";
+            dum = dum * doubles;
+          }
+          messages += "勝ち！%dダメージを与えた".sprintf(dum);
+          enemy.h = enemy.h - dum;
+          break;
+        case 3:
+          dum = ((player.p * keis) - (enemy.vp * returnRnd(keis)));
+          if (dum < 0) { dum = 0; }
+
+          messages += "勝ち！%dダメージを与えた".sprintf(dum);
+          enemy.h = enemy.h - dum;
+          break;
+        case 4:
+          dum = ((enemy.g * keis) - (player.vg * returnRnd(keis)));
+          if (dum < 0) { dum = 0; }
+          if (returnRnd(100) > critPer) {
+            messages += "クリティカルヒット！";
+            dum = dum * crit;
+          }
+          messages += "負け！%dダメージを受けた".sprintf(dum);
+          player.h = player.h - dum;
+          preDum = dum;
+          break;
+        case 5:
+          dum = ((enemy.t * keis) - (player.vt * returnRnd(keis)))
+          if (dum < 0) { dum = 0; }
+          if (returnRnd(100) > doublePer) {
+            messages += "倍ダメージ！";
+            dum = dum * doubles;
+          }
+          messages += "負け！%dダメージを受けた".sprintf(dum);
+          player.h = player.h - dum;
+          preDum = dum;
+          break;
+        case 6:
+          dum = ((enemy.p * keis) - (player.vp * returnRnd(keis)));
+          if (dum < 0) { dum = 0; }
+          messages += "負け！%dダメージを受けた".sprintf(dum);
+          player.h = player.h - dum;
+          preDum = dum;
+          break;
+      }
+    } else {
+      if (player.mp < 1) {
+        messages += "魔法が空です。。<BR>";
+      } else {
+        player.mp = player.mp - 1;
+        switch (act) {
+          case 4: //c
+            var cares = returnRnd(player.mh);
+            messages += "体力回復！%dを回復！".sprintf(cares);
+            player.h = player.h + cares;
+            if (player.h > player.mh) { player.h = player.mh; }
+            break;
+          case 5: //d
+            dum = ((player.t * keis) - (enemy.vt * returnRnd(keis)));
+            if (dum < 0) { dum = 0; }
+            dum = dum * doubles;
+            messages += "倍ダメージ！%dを与えた！".sprintf(dum);
+            enemy.h = enemy.h - dum;
+            break;
+          case 6: //r
+            messages += "カウンター！%dダメージを跳ね返した！".sprintf(preDum);
+            enemy.h = enemy.h - preDum;
+            preDum = preDum / 2;
+            if (preDum < 2) { preDum = 1; }
+            break;
+        }
+      }
+    }
+
+    element.innerHTML = "";
+
+    element.innerHTML += "<table border=\"1\" id=\"messageTable\"><tr><th>message</th></tr>";
+    theFormChild = document.getElementById("messageTable");
+    theFormChild.innerHTML += "<small><tr><td>" + messages + "</td></tr></table><br></small>";
+
+    if (boss == 0) {
+      element.innerHTML += "<img src=\"boss/" + enemy.pic + ".gif\" width=\"10%\" height=\"10%\">";
+    } else {
+      element.innerHTML += "<img src=\"enemy/" + enemy.pic + ".gif\" width=\"5%\" height=\"5%\">";
+    }
+
+    element.innerHTML += "<small><table border=\"1\" id=\"playerTable\"><tr><th></th><th>レベル</th><th>体力</th><th>魔法</th><th>グー</th><th>チョキ</th><th>パー</th><th>グー防御</th><th>チョキ防御</th><th>パー防御</th><th>レート</th><th>経験値</th></tr>";
+    theFormChild = document.getElementById("playerTable");
+    theFormChild.innerHTML += "<tr><th>あなた</th><th>" + player.lv + "</th><th>" + player.h + " / " + player.mh +"</th><th>" + player.mp + "</th><th>" + player.g + "</th><th>" + player.t + "</th><th>" + player.p + "</th><th>" + player.vg + "</th><th>" + player.vt + "</th><th>" + player.vp + "</th><th>" + PlayerRate + "</th><th>" + player.exp + " / " + player.lvl +"</th></tr>";
+    theFormChild.innerHTML += "<tr><th>敵</th><th bgcolor=\"#000000\"></th><th>" + enemy.h +"</th><th bgcolor=\"#000000\"></th><th>" + enemy.g + "</th><th>" + enemy.t + "</th><th>" + enemy.p + "</th><th bgcolor=\"#000000\"></th><th bgcolor=\"#000000\"></th><th bgcolor=\"#000000\"></th><th>" + enemyRate + "</th><th bgcolor=\"#000000\"></th></tr></table></small>";
+
+    if (player.h < 0) {
+      element = document.getElementById('stats');
+      element.innerHTML = "";
+      element = document.getElementById('games');
+      element.innerHTML = "";
+      element.innerHTML += "戦いに敗れた。。<BR>";
+      element.innerHTML += "<BR><button id=\"next\" onclick=\"getMenuClick(this); event.stopPropagation()\">次へ進む</button><BR>";
+      player.h = player.mh
+      player.mp = player.mmp
+      if (boss == 0) {
+        boss = 1 + returnRnd(2);
+      }
+    } else if (enemy.h < 0) {
+      player.h = player.mh
+      element = document.getElementById('stats');
+      element.innerHTML = "";
+      element = document.getElementById('games');
+      element.innerHTML = "";
+      element.innerHTML += "戦いに勝った！<BR>";
+      boss = boss - 1;
+      var exp = 0;
+      if (boss == -1) {
+        element.innerHTML += "ボスを倒した！<BR>";
+        exp = Math.ceil(bles.length * 3);
+        boss = 1 + returnRnd(2);
+      } else {
+        exp = bles.length + returnRnd(bles.length);
+      }
+      element.innerHTML += "GET EXP! [%d]\n".sprintf(exp) + "<BR>";
+      if ((player.exp + exp) > player.lvl) {
+        player.exp = player.exp + exp;
+        while (player.exp > player.lvl) {
+          element.innerHTML += "レベルがあがった！";
+          lvl++;
+          player.exp = player.exp - player.lvl;
+          player.lvl = Math.ceil(player.lvl * 1.25);
+          player.mp = player.mmp
+        }
+      } else {
+        player.exp += exp;
+      }
+      element.innerHTML += "<BR><button id=\"next\" onclick=\"getMenuClick(this); event.stopPropagation()\">次へ進む</button><BR>";
+    }
+  }
+}
+
+//window.onload = function() {
+//  startScript();
+//};
+</script>
+<script type="text/javascript" src="cordova.js"></script>
+</body>
+</html> 
+
